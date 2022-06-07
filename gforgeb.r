@@ -1,0 +1,1226 @@
+=begin
+
+    author: Gwrawr (stayrange)
+        name: gforge
+        tags: forge, forging, perfects, perfect, artisan, crafting
+        version: 1.0b
+
+        #TODO
+            grinding, vising are similar, could be one function with a parameter for grind/vise
+            class for weapon
+                weapon.headnoun,shaftnoun,glyphs,glyphs[0]=head
+
+                repeat cutting
+
+            ;e multifput "stow l", "swap", "poke slab-cutter";result ="";until result =~ /a 2lb/;result = fput "push slab-cutter";pause 0.1;end;fput "pull slab-cutter"
+
+            repeat slabbing
+
+            ;e multifput "drop staff", "get enchanted oil", "pour my oil in trough", "get my gornar slab", "stare endcap"; waitrt?; fput"get tongs";waitrt?;fput "get tongs"
+
+=end
+
+class Product
+    @skill
+    @noun
+    @headNoun
+    @headGlyph
+    @shaftNoun
+    @shaftGlyph
+    @headSize
+    @shaftSize
+
+    #initialize
+    def initialize(product)
+        case product
+            when /forging-hammer/
+            when /quarterstaff/
+            when /dagger/
+            else
+                echo "Error: Unsupported Product"
+                exit
+        end
+    end
+
+    #access
+    def skill
+        return @skill
+    end
+    def skill
+        return @noun
+    end
+    def skill
+        return @headNoun
+    end
+    def skill
+        return @headGlyph
+    end
+    def skill
+        return @shaftNoun
+    end
+    def skill
+        return @shaftGlyph
+    end
+    def skill
+        return @headSize
+    end
+    def skill
+        return @shaftSize
+    end
+    
+
+end
+
+CharSettings["last_gforge"] = variable.join(" ") if variable
+
+$woods = /maoral|oak|tanik|haon|ash|fel|elm|hazelwood|ko'nag|ironwood|modwir|carmiln|deringo|faewood|fireleaf|glowbark|hoarbeam|illthorn|ipantor|kakore|lor|mesille|mossbark|orase|rowan|ruic|sephwir|surita|villswood|witchwood|wyrwood|yew/
+$notes = /(?<note>chit|note|scrip)/
+$materials = /(?<newmaterial>rolaren|kelyn|golvern|eonake|white ora|ora|bronze|iron|steel|mithril|white ora|eonake|ora|imflass|vultite|gornar|zorchar|drakar|rhimar|razern|faenor|vaalorn)/
+
+iterations = 1
+makeHead = false
+makeHandle = false
+makePerfect = false
+
+$keepProduct = true
+
+$product = "forging-hammer"
+
+$head = "hammer-head"
+$shaft = "hammer-handle"
+$headglyph = "head"
+$shaftglyph = "handle"
+
+$material = "bronze"
+$supplyCheck = /a \w* ?(#{$material} ?)(?<type>bar|slab|block)(\.|,| and)/
+$type = "bar"
+$makenum = 1
+
+CharSettings["forging_containers"] ||= []
+
+if not CharSettings["forging_containers"][0]
+    if not ( variable[0].include? "--bag+" or variable[0].include? "help" or variable[0].include? "setup")
+        echo "please run setup or help, or add at least two bags with ;gforge --bag+BAGNOUN"
+        exit
+    end
+end
+
+$container = CharSettings["forging_containers"][0]
+$bestbag = CharSettings["forging_containers"][1]
+
+$supplies = ""
+$dump = ""
+$nobuy = false
+
+$oil = "water"
+$oilCheck = /#{$oil}/
+
+def bagPlus()
+end
+
+def bagMinus()
+end
+
+def setMaterial(material)
+    if material =~ $materials or material =~ $woods
+        $material = material
+        $supplyCheck = /an? \w* ?(#{$material} ?)(?<type>bar|slab|block)(\.|,| and)/
+        echo "material set to #{$material}"
+        if $material == "bronze"
+            $type = "bar"
+        elsif $material =~ $woods
+            $type = "block"
+        else
+            $type = "slab"
+        end
+        case $material
+            when /steel|invar/
+                $oil = "tempering oil"
+                $oilCheck = /some oil/
+            when /drakar|gornar|rhimar|zorchar|mithril|kelyn|faenor|white ora|ora/
+                $oil = "enchanted oil"
+                $oilCheck = /iridescent/
+            when /razern|imflass|mithglin|vaalorn|eahnor/
+                $oil = "twice-enchanted oil"
+                $oilCheck = /opalescent/
+            when /vultite|eonake|rolaren|golvern/
+                $oil = "ensorcelled oil"
+                $oilCheck = /dimly glowing/
+        end
+    else
+        echo "Invalid material"
+        exit
+    end
+end
+
+flags = []
+if variable[1]
+    if variable[1] =~ /setup|options/
+        window = window_action = nil
+        Gtk.queue {
+            gtk_selections = Hash.new
+            
+            saveButton = Gtk::Button.new("Save and Exit")
+        
+            window = Gtk::Window.new(Gtk::Window::TOPLEVEL)
+            window.set_title  "GForge Settings"
+            window.border_width = 20
+
+            vbox = Gtk::VBox.new(false, 0)
+            
+            
+            #protect_check = Gtk::CheckButton.new("Symbol of Protection: +26 to DS and +13 TD")						#Adds Check Button with lable
+            #protect_check.active = settings['9806']
+            #gtk_checks['9806'] = protect_check
+        
+            #courage_check = Gtk::CheckButton.new("Symbol of Courage: +26 to AS ")
+            #courage_check.active = settings['9805']
+            #gtk_checks['9805'] = courage_check
+
+            
+            #tooltips = Gtk::Tooltips.new
+            #tooltips.set_tip(protect_check, "31 Favor - Stackable", "")
+            #tooltips.set_tip(courage_check, "31 Favor - Stackable", "")
+
+            #vbox.pack_start(protect_check, false, true, 0)
+            #vbox.pack_start(courage_check, false, true, 0)
+            #vbox.pack_start(saveButton)
+            
+            window.add(vbox)
+            saveButton.signal_connect('clicked') { 
+                Gtk.queue {											
+                    gtk_checks.each_pair { 
+                        |name,check| settings[name] = check.active? 
+                   }
+                    window_action = :save
+                }
+            }
+            window.signal_connect('delete_event') {window_action = :cancel}
+            window.show_all
+            window.resizable = false
+        }
+
+        before_dying { Gtk.queue { window.destroy } }
+        wait_while { window_action.nil? }
+        undo_before_dying
+        Gtk.queue { window.destroy }
+
+        #Very important part.  This allows you to change the settings, but does not execute the Loop when you hit Save & Close.
+        Script.self.kill 
+    end
+
+    #variable = CharSettings["last_gforge"].slice!(0) if variable =~ /--last/
+    for var in variable.drop(1)
+        #echo "processing input #{var}"
+        case var
+            when /--nobuy/
+                flags << "nobuy"
+                $nobuy = true
+            when /(--product|-p)=(?<product>[a-z\-]+)|--(?<product>forging-hammer|morning|spikestar|knuckle-duster|cudgel|maul|mace|longsword|dagger|spear|awl-pike|warsword|shortsword|broadsword|estoc|backsword|quarterstaff|greatsword|main-gauche|greataxe|gauche|main|handaxe|falchion)/
+                #echo $~[:product]
+                flags << "product"
+                if $~[:product] =~ /(?<product>forging-hammer|morning|spikestar|knuckle-duster|cudgel|maul|mace|longsword|dagger|spear|awl-pike|warsword|shortsword|broadsword|estoc|backsword|quarterstaff|greatsword|main-gauche|greataxe|gauche|main|handaxe|falchion)/
+                    $product = $~[:product]
+                    #echo "product is #{$product}"
+                    case $product
+                        when /forging-hammer/
+                            #echo "product set to forging-hammer"
+                            $head = "hammer-head"
+                            $shaft = "hammer-handle"
+                            $headglyph = "forging-hammer head-glyph"
+                            $shaftglyph = "forging-hammer handle-glyph"
+                        when /cudgel/
+                            $head = "cudgel-head"
+                            $shaft = "cudgel-handle"
+                            $headglyph = "head-glyph"
+                            $shaftglyph = "handle-glyph"
+                        when /spikestar/
+                            $head = "spikestar-head"
+                            $shaft = "spikestar-handle"
+                            $headglyph = "head-glyph"
+                            $shaftglyph = "handle-glyph"
+                        when /morning/
+                            $head = "star-head"
+                            $shaft = "star-handle"
+                            $headglyph = "head-glyph"
+                            $shaftglyph = "handle-glyph"
+                        when /knuckle-duster/
+                            $head = "knuckleduster-blade"
+                            $shaft = "knuckleduster-handle"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "handle-glyph"
+                        when /mace/
+                            $head = "mace-head"
+                            $shaft = "mace-handle"
+                            $headglyph = "head-glyph"
+                            $shaftglyph = "handle-glyph"
+                        when /shortsword/
+                            $head = "sword-blade"
+                            $shaft = "sword-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /dagger/
+                            $head = "dagger-blade"
+                            $shaft = "dagger-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /main-gauche|gauche|main/
+                            $head = "gauche-blade"
+                            $shaft = "gauche-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /estoc/
+                            $head = "estoc-blade"
+                            $shaft = "estoc-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /falchion/
+                            $head = "falchion-blade"
+                            $shaft = "falchion-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /handaxe/
+                            $head = "axe-blade"
+                            $shaft = "axe-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "haft-glyph"
+                        when /backsword/
+                            $head = "backsword-blade"
+                            $shaft = "backsword-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /longsword/
+                            $head = "longsword-blade"
+                            $shaft = "longsword-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"                          
+                        when /broadsword/
+                            $head = "broadsword-blade"
+                            $shaft = "backsword-hilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /quarterstaff/
+                            $head = "staff-cap"
+                            $shaft = "staff-shaft"
+                            $headglyph = "endcap-glyph"
+                            $shaftglyph = "shaft-glyph"
+                        when /greatsword/
+                            $head = "greatswordblade"
+                            $shaft = "greatswordhilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /warsword/
+                            $head = "warswordblade"
+                            $shaft = "warswordhilt"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "hilt-glyph"
+                        when /greataxe/
+                            $head = "greataxe-blade"
+                            $shaft = "greataxe-haft"
+                            $headglyph = "blade-glyph"
+                            $shaftglyph = "haft-glyph"
+                        when /maul/
+                            $head = "maul-head"
+                            $shaft = "maul-shaft"
+                            $headglyph = "maul head-glyph"
+                            $shaftglyph = "maul shaft-glyph"
+                        when /spear/
+                            $head = "spear-head"
+                            $shaft = "spear-shaft"
+                            $headglyph = "head-glyph"
+                            $shaftglyph = "shaft-glyph"
+                        when /hammer of Kai/
+                            $head = "hammer-head"
+                            $shaft = "hammer-shaft"
+                            $headglyph = "head-glyph"
+                            $shaftglyph = "shaft-glyph"
+                        when /awl-pike/
+                            $head = "awlpike-head"
+                            $shaft = "awlpike-shaft"
+                            $headglyph = "head-glyph"
+                            $shaftglyph = "shaft-glyph"
+                        else
+                            "Product not supported"
+                            exit
+                    end
+                else
+                    echo "Invalid product"
+                    exit
+                end
+            when /--(?<newmaterial>rolaren|white|bronze|golvern|kelyn|iron|steel|mithril|ora|imflass|vultite|gornar|zorchar|drakar|rhimar|razern|faenor|maoral|eonake|vaalorn)/
+                flags << "material"
+                newMaterial = $~[:newmaterial]
+                newMaterial = "white ora" if newMaterial =~ /white/
+                setMaterial(newMaterial)
+            when /--(material|m|metal|wood)=(?<newmaterial>[\w\-]+)/
+                flags << "material"
+                setMaterial($~[:newmaterial])
+            when /--(dump)/
+                flags << "dump"
+                $keepProduct = false
+            when /--(vise|combine)|-(v|c)/
+                flags << "vise"
+                makePerfect = true
+            when /(--(make=|combine=)|-m)(?<makenum>\d+)/
+                flags << "make"
+                $makenum = $~[:makenum].to_i
+            when /--(shaft|handle|haft|hilt)/
+                flags << "handle"
+                makeHandle=true
+            when /--head|--blade/
+                flags << "head"
+                makeHead=true
+            when /(--(iterations|i)|-i)=(?<iterations>\d+)/
+                flags << "iterations"
+                iterations = $~[:iterations].to_i
+            when /--bag-(?<oldbag>[\w\-]+)/
+                CharSettings["forging_containers"].delete($~[:oldbag]) if CharSettings["forging_containers"].include? $~[:oldbag]
+                echo "bag removed"
+                exit
+            when /--bag\+(?<newbag>[\w\-]+)/
+                CharSettings["forging_containers"] << $~[:newbag] if not CharSettings["forging_containers"].include? $~[:newbag]
+                echo "bag added"
+                echo "bags are #{CharSettings["forging_containers"]}"
+                exit
+            when /setup/
+                echo "incomplete GUI please add bags with ;gforge --bag+BAGNOUN"
+            when /help/
+                echo "********************************************************************************************************************"
+                echo "********************************************************************************************************************"
+                echo "                                                                                                                    "
+                echo "  *****                                                                                                             "
+                echo "  FLAGS   --help              display this                                                                          "
+                echo "          --setup             enter setup GUI                                                                       "
+                echo "          --nobuy             do not allow buying                                                                   "
+                echo "          --material=XYZ      set material to XYZ                                                                   "
+                echo "          --mithril           set material to mithril                                                               "
+                echo "          --metal=                                                                                                  "
+                echo "          --wood=                                                                                                   "
+                echo "                                                                                                                    "
+                echo "          --product=XYZ       set product to XYZ                                                                    "
+                echo "                              eg --product=shortsword                                                               "
+                echo "                                                                                                                    "
+                echo "          --handle            make handles ON                                                                       "
+                echo "          --shaft                                                                                                   "
+                echo "          --hilt                                                                                                    "
+                echo "          --haft                                                                                                    "
+                echo "          --head              make heads/blades ON                                                                  "
+                echo "          --blade                                                                                                   "
+                echo "                                                                                                                    "
+                echo "          --iterations=X      complete X iterations                                                                 "
+                echo "          --i=X               eg:     --handle --i=4      will make 4 best handles                                  "
+                echo "           -i=X               eg:     --iterations=4      will make 4 of each handle and head                       "
+                echo "                                                                                                                    "
+                echo "          --vise              combine handles and heads ON (OFF by default with no args)                            "
+                echo "          --combine                                                                                                 "
+                echo "                              eg  -vise --i=2 will attempt to create 1 perfect from up to 2 handles and hafts       "
+                echo "                                              that are already made                                                 "
+                echo "                                  --handle --haft --vise attempts to make 1 perfect from scratch, with 1 attempt    "
+                echo "                                                                                                                    "
+                echo "          --make=             only valid with vise/combine flag, attempt to make this many perfects                 "
+                echo "                              eg --vise --i=10 --make=2 will attempt to create 2 perfects with 10 combines          "
+                echo "                                 --vise     will attempt to make 1 perfect from all available components            "
+                echo "                                                                                                                    "
+                echo "          --dump              trash products                                                                        "
+                echo "                                                                                                                    "
+                echo "          --bag+              eg --bag+cloak will add the noun cloak to the list of containers                      "
+                echo "          --bag-              eg --bag-cloak will remove the noun cloak from the...                                 "
+                echo "                                                                                                                    "
+                echo "                              default behavior is ;gforge --handle --head --iterations=1 --material=bronze          "
+                echo "                                                                                                                    "
+                echo "********************************************************************************************************************"
+                echo "      first time users please run ;gforge --bag+BAGNOUN for at least two bags                                       "  
+                echo "********************************************************************************************************************"
+                echo "                                                                                                                    "
+                echo "      BEGINNER Forgers: it is reccommended to...                                                                    "
+                echo "              1) train crafting to 500 making bronze hammer-heads and hammer-handles                                "
+                echo "              2) make best magical hammer-heads and hammer-handles in groups of 2 to 5                              "
+                echo "                          by making best magical hammers and handles in a 1:1 ratio                                 "
+                echo "              3) train your weapon skill to 500 using bronze on increasingly difficult glyphs                       "
+                echo "              4) forge perfect weapons                                                                              "
+                echo "                                                                                                                    "
+                echo "********************************************************************************************************************"
+                echo "********************************************************************************************************************"
+                exit
+            else
+                echo "please use ;gforge help" unless var =~ /gf/
+        end
+    end
+    if flags.include? "iterations" or flags.include? "dump" or flags.include? "material" or flags.include? "product"
+        if not ( flags.include? "handle" or flags.include? "head" or flags.include? "vise" )
+            makeHandle=true
+            makeHead=true
+        end
+    end
+    if flags.include? "vise" and not flags.include? "iterations"
+        $iterations = 99
+    end
+else
+    makeHandle=true
+    makeHead=true
+    iterations=1
+end
+
+def go2(room)
+    Script.run "go2", "#{room}"
+end
+
+def swap()
+    swapped = false
+
+    result = ""
+    put "swap"
+    until result =~ /You swap|\.\.\.wait/
+        result << get
+    end
+
+    case result
+        when /\.\.\.wait/
+            waitrt?
+            swap()
+        when /You swap/
+            return
+    end
+
+end
+
+def loadSupplies()
+    sleep 0.1
+    $supplies = dothis "look in my #{$container}", /^In the.*\.$|nothing in there|Total items: /
+end
+
+def appraiseBest(component)
+    result = dothis "appraise my #{component}", /superior|condition/
+    case result
+        when /superior/
+            return true
+        else
+            exit
+    end
+    return false
+end
+
+def buy(catnum)
+    fput "order #{catnum}"
+    buy = dothis "buy", /Sold for|But you do not have/
+    case buy
+        when /Sold for/
+            return true
+        when /But you do not have/
+            return false
+        else
+            echo "*                "
+            echo "                 "
+            echo "ENTERED BAD STATE"
+            echo "                 "
+            echo "*                "
+            return false
+    end
+    return false
+end
+
+def goWorkshop()
+    if checkroom =~ / Forge/
+        fput "go door"
+        return
+    end
+    return if checkroom =~ /Workshop(?!s)/
+    result = dothis "go workshop", /have enough silver|some time remaining|the clerk collects/
+    case result
+        when /have enough silver/
+            Script.run "go2", "bank"
+            fput "with 300"
+            Script.run "go2", "forge"
+            goWorkshop()
+        when /some time remaining/
+            #continue
+        when /the clerk collects/
+            #continue
+    end
+end
+
+def goForge()
+    #TODO town logic here
+    return if $product =~ /forging/
+    goWorkshop() unless checkroom =~ /Workshop(?!s)/ or checkroom =~/ Forge/
+    until checkroom =~ / Forge/
+        put "go door"
+        pause
+    end
+end
+
+def dump(dump)
+    GameObj.loot.each { |loot| if loot.name =~ /barrel/ then $dump = "barrel" elsif loot.name =~ /bin/ then $dump = "bin" end } if not $dump
+    result = dothis "put my #{dump} in #{$dump}", /As you place|crazy/
+    case result
+        when /As you place/
+            return
+        when /crazy/
+            fput "put my #{$type} in my #{$container}"
+            goWorkshop()
+            fput "out"
+            Script.run "go2", "pawnshop"
+            fput "sell my #{dump}"
+            Script.run "go2", "bank"
+            fput "deposit all"
+            Script.run "go2", "forge"
+            goWorkshop()
+            goForge() unless $product =~ /forging-hammer/ or flags.include? "vise"
+            getBar()
+    end
+end
+
+def withdraw(withdraw)
+    go2("bank")
+    note = "note"
+    note = "chit" if checkroom =~ /ICEMULE BANK/
+    note = "scrip" if checkroom =~ /Kharam-Dzu/
+    put "deposit all"
+    multifput "withdraw #{withdraw} note", "withdraw 1500 coin"
+    loadSupplies()
+    go2("forge")
+end
+
+def measureGlyph(glyph)
+    return 0 if glyph =~ /forging/
+    goWorkshop() if not checkroom /Workshop(?!s)/
+    getSupplies(glyph) if not getBar()
+    fput "get my #{glyph}"
+    result = dothis "measure my #{glyph}", /you determine it would be necessary to have (?<size>\d*) pounds of/
+    echo "result is #{result}"
+    if result =~ /you determine it would be necessary to have (?<size>\d*) pounds of/
+        size = $~[:size]
+        size = size.to_i
+        echo "measure size is #{size}"
+    end
+    fput "stow my #{glyph}"
+    return size
+end
+
+def cutBar(size, glyph)
+    return true if glyph =~ /forging/
+    echo "cutbar size is #{size}"
+    getSupplies(glyph) if not getBar()
+ 
+    result = dothis "weigh my #{$type}", /determine that the weight is about (?<slabsize>\d*) pounds/
+    if result =~ /determine that the weight is about (?<slabsize>\d*) pounds/
+        slabsize = $~[:slabsize].to_i
+    end
+    return false if slabsize < size
+
+    while slabsize >= size *2
+        swap() if checkright =~ /#{$type}/
+        echo "slabsize is #{slabsize} and size is #{size}"
+        measuresize = 99
+        fput "poke slab-cutter"
+
+        if slabsize > size * 3
+            until measuresize <= size
+                echo "slabsize is #{slabsize} and size is #{size}"
+                result = dothis "push slab-cutter", /into a (?<measuresize>\d*)lb\. piece/
+                if result =~ /into a (?<measuresize>\d*)lb\. piece/
+                    measuresize = $~[:measuresize].to_i
+                end
+            end
+        end
+
+        fput "pull slab-cutter"
+        fput "stow l"
+        slabsize = slabsize - size
+    end
+    fput "stow all"
+    return true
+end
+
+def order()
+    catalog = ""
+    fput "order"
+    until catalog =~ /You can APPRAISE|There is no merchant here to order anything from/
+        catalog << get 
+    end
+    return catalog
+end
+
+def getSupplies(glyph)
+    echo "in getSupplies and material is #{$material}"
+    $supplyCheck = /a \w* ?(#{$material} ?)(?<type>bar|slab|block)(\.|,| and)/
+    loadSupplies()
+    if not $supplies =~ $supplyCheck
+        if checkroom =~ / Forge/
+            goWorkshop()
+        end
+        if checkroom =~ /Workshop(?!s)/
+            fput "out"
+        end
+        go2("forge") unless checkroom =~ /Supply Shop|Central Platform/
+        if $nobuy
+            echo "Error:  Set not to buy, out of materials"
+            exit
+        end
+        
+        catalog = ""
+        until catalog =~ /You can APPRAISE/
+            catalog = order()
+        end
+
+        if catalog =~ /(?<catnum>\d+)\. a \w* ?#{$material} #{$type}/
+            catnum = $~[:catnum]
+            i = 1
+            loop do    
+                break if i >= 2 #buy twice
+                if buy(catnum)
+                    result = dothis "put my #{$type} in my #{$container}", /You put|won't fit/
+                    case result
+                        when /You put/
+                            #continue
+                            noop = 0
+                        when /won't fit/
+                            echo "Supply bag is full, please clean it out"
+                            exit
+                    end
+                    $supples << "a #{$material} #{$type} , "
+                else 
+                    withdraw(100 * 1000) unless $material == "vultite" or $material == "imflass"
+                    withdraw(300 * 1000) if $material == "vultite" or $material == "imflass"
+                    i = i - 1
+                end
+                i = i + 1
+            end
+            swap() if checkright =~ /#{$type}/
+            if checkleft =~ $notes or checkright =~ $notes
+                result = dothis "put #{$~[:note]} in my #{$container}", /You put|fit in the/
+                if result =~ /fit in the/
+                    echo "Error: Please make room in your container"
+                    exit
+                end
+            end
+            goWorkshop()
+        else
+            echo "store doesn't have your material"
+            exit
+        end
+    else
+        $type = $~[:type]
+    end
+    loadSupplies()
+    if not getBar()
+        echo "Error: Can't find supplies"
+        exit
+    end
+    cutBar(measureGlyph(glyph), glyph) unless glyph =~ /shaft|handle|haft|hilt/
+    #Script.run "foreach", "noun=#{$type} in my backpack; get; put noun in my #{$container}"
+    fput "get my #{$material} #{$type} from my #{$container}"
+end
+
+def getBar()
+    sleep 0.1
+    if checkright =~ /#{$type}/
+        swap()
+        return true
+    end
+    return true if checkleft =~ /#{$type}/
+    if $supplies =~ $supplyCheck
+        result = dothis "get my #{$type} from my #{$container}", /Get what|You remove/
+        if result =~ /Get what/
+            return false
+        else
+            $supplies.slice! $material + " " + $type
+            swap()
+            return true
+        end
+    else
+        return false
+    end
+end
+
+
+def getOil()
+
+    if checkright =~ /oil/
+        swap()
+        return true
+    end
+    if checkleft =~ /oil/
+        return true
+    end
+
+    if $supplies =~ /#{$oil}/
+        fput "get my #{$oil}"
+        $supplies.slice! $oil
+        return true
+    end
+    return false
+
+end
+
+def buyOil(glyph)
+    fput "stow l" if not checkleft == nil
+    loadSupplies()
+    if $supplies =~ /#{$oil}/
+        goWorkshop() unless checkroom =~ /Workshop(?!s)/ or checkroom =~ / Forge/
+        goForge() unless checkroom =~ / Forge/ or glyph =~ /forging-hammer/
+    end
+    goWorkshop() if checkroom =~ / Forge/
+    put "out" if checkroom =~ /Workshop(?!s)/
+    waitfor /Obvious/
+    go2("forge") unless checkroom =~ /Supply Shop|Central Platform/
+    if $nobuy
+        echo "Error:  Set to not buy, out of materials"
+        exit
+    end
+    fput "get #{$~[:note]}" if $supplies =~ $notes
+    catalog = ""
+    fput "order"
+    until catalog =~ /You can APPRAISE/
+        catalog << get 
+    end
+    if catalog =~ /(?<catnum>\d+)\. a large skin of #{$oil}/
+        catnum = $~[:catnum]
+        i = 1
+        loop do    
+            #echo "i is #{i}"
+            break if i > 2 #buy twice
+            if buy(catnum)
+                if i < 2
+                    result = dothis "put my #{$oil} in my #{$container}", /You put|won't fit/
+                    case result
+                        when /You put/
+                            #continue
+                        when /won't fit/
+                            echo "Supply bag is full, please clean it out"
+                            exit
+                    end
+                end
+                $supples << " #{$oil}, "
+            else 
+                withdraw(100 * 1000) unless $material == "vultite" or $material == "imflass"
+                withdraw(300 * 1000) if $material == "vultite" or $material == "imflass"
+                i = i - 1
+            end
+            i = i + 1
+        end
+        swap() if checkright =~ /#{$oil}/
+        if checkleft =~ $notes or checkright =~ $notes
+            result = dothis "put #{$~[:note]} in my #{$container}", /You put|fit in the/
+            if result =~ /fit in the/
+                echo "Error: Please make room in your container"
+                exit
+            end
+        end
+        goWorkshop()
+        goForge() unless checkroom =~ / Forge/ or glyph =~ /forging-hammer/
+    else
+        echo "store doesn't have your oil"
+        exit
+    end
+    if not getOil()
+        echo "Error: Can't find supplies"
+        exit
+    end
+end
+
+def scribe(glyph)
+    loop do
+        pause 1
+        if checkright =~ /#{$type}/
+            swap()
+        end
+
+        if not checkleft =~ /#{$type}/
+            if checkright =~ /#{$type}/
+                swap()
+            end
+        end
+
+        if not checkleft =~ /#{$type}/
+            getSupplies(glyph) if not getBar()
+            swap()
+        end
+
+        if checkright =~ /#{$type}/
+            swap()
+        end
+    
+        stare = ""
+        put "stare my #{glyph}"
+        until stare =~ /Your material is marked with a pattern|The material in your left hand is not in a form that the glyph will work on|Glancing around you see a door to the forging|Before the design is complete you reach an edge|Glancing around you see a grinder|has already been worked on|Glancing around you see a trough|\.\.\.wait/
+            stare << get
+        end
+        waitrt?
+        case stare
+            when /The material in your left hand is not in a form that the glyph will work on/
+                swap() if checkleft =~ /forging-hammer/
+                scribe(glyph)
+            when /has already been worked on/
+                echo "Error: Unknown scribed bar"
+                echo "Finishing whatever this is"
+                goForge() unless glyph =~ /forging-hammer/ or checkroom =~ / Forge/
+                break
+            when /Before the design is complete you reach an edge/
+                case $material
+                    when /iron|steel|bronze/
+                        multifput "put my #{$type} in #{$dump}", "drop my #{$material} #{$type}"
+                    else
+                        fput "put my #{$type} in my #{$bestbag}"
+                end
+                pause 0.1
+                loadSupplies()
+                getSupplies(glyph) if not getBar()
+                scribe(glyph)
+            when /\.\.\.wait/
+                scribe(glyph)
+            when /Glancing around you see a door to the forging/
+                #scribing complete
+                goForge() unless glyph =~ /forging-hammer/ or checkroom =~ / Forge/
+                break
+            when /Glancing around you see a grinder|Glancing around you see a trough|Your material is marked with a pattern/
+                #scribing complete
+                break
+        end
+    end
+    waitrt?
+end
+
+def grind(glyph)
+    result = ""
+    put "turn grinder"
+    until result =~ /Your hands are empty|\.\.\.wait|but no one can shape materials at the grinder with both hands full|this piece is the very best|rent on this workshop has expired|You finish your work and stand up|a few choice words|safest thing to do now|#{Char.name} is using/
+        result << get
+    end
+    waitrt?
+    case result
+        when /Your hands are empty/
+            return "best"
+        when /but no one can shape materials at the grinder with both hands full/
+            fput "stow r"
+            grind(glyph)
+        when /\.\.\.wait/
+            grind(glyph)
+        when /this piece is the very best/
+            if $keepProduct 
+                polish()
+                fput "put my #{checkleft} in my #{$bestbag}"
+            elsif not besthead
+                fput "drop my #{checkleft}"
+            else
+                dump($head)
+            end
+            return "best"
+        when /a few choice words/
+            dump("toothpick")
+            getSupplies(glyph) if not getBar()
+            scribe(glyph)
+        when /safest thing to do now is to/, /#{Char.name} is using/
+            scribe(glyph)
+        when /You finish your work and stand up/
+            dump(checkleft)
+            getSupplies(glyph) if not getBar()
+            scribe(glyph)
+        when /rent on this workshop has expired/
+            fput "out"
+            pause 2
+            goWorkshop()
+            grind(glyph)
+    end
+end
+
+def polish()
+    waitrt?
+    fput "put my #{$type} in my #{$container}" if not checkright == nil
+    loop do
+        result = ""
+        put "lean polisher" 
+        until result =~ /Your hands are empty|has not been shaped at the grinder|You straighten up from working at the polishing wheel|rent on this workshop has expired|\.\.\.wait|both hands full\.|#{Char.name} is using the polisher right now/
+            result << get
+        end
+        if result =~ /rent on this workshop has expired/
+            fput "out"
+            pause 2
+            goWorkshop()
+            polish()
+        elsif result =~ /\.\.\.wait|#{Char.name} is using the polisher right now/
+            polish()
+        elsif result =~ /both hands full\./
+            fput "stow r"
+        elsif result =~ /has not been shaped at the grinder|Your hands are empty/
+            break
+        else
+            break
+        end
+    end
+end
+
+def vise()
+    result = ""
+    put "turn vise"
+    until result =~ /this piece is the very best|rent on this workshop has expired|You finish your work|a few choice words|safest thing to do now|#{Char.name} is using|wait/
+        result << get
+    end
+    waitrt?
+    case result
+        when /wait/
+            pause
+            vise()
+        when /this piece is the very best/
+            3.times {
+                print "\a"
+                pause
+            }
+            return "perfect"
+        when /a few choice words/
+            return "ruin"
+        when /safest thing to do now is to/, /#{Char.name} is using/
+            return "redo"
+        when /You finish your work/
+            return "done"
+        when /rent on this workshop has expired/
+            fput "out" 
+            pause 2
+            goWorkshop()
+            vise()
+    end
+end
+
+def makeHandle(glyph)
+    echo "in makeHandle"
+    bestshaft = false
+    while not bestshaft
+        getSupplies($shaftglyph) if not getBar()
+        goWorkshop() unless checkroom =~ /Workshop(?!s)/
+        get #extra line when entering workshop
+        GameObj.loot.each { |loot| if loot.name =~ /barrel/ then $dump = "barrel" elsif loot.name =~ /bin/ then $dump = "bin" end }
+        scribe($shaftglyph)
+        loop do
+            result = grind(glyph)
+            case result
+                when /best/
+                    bestshaft=true
+                    break
+                when /done/
+                    dump($shaft)
+                    getSupplies(glyph) if not getBar()
+                    scribe($shaftglyph)
+                when /ruin/
+                    dump("toothpick")
+                    getSupplies(glyph) if not getBar()
+                    scribe($shaftglyph)
+                when /redo/
+                    scribe($shaftglyph)
+            end
+        end
+        waitrt?
+        fput "put my #{$type} in my #{$container}" if not checkright == nil
+        polish()
+        if $keepProduct 
+            fput "put my #{$shaft} in my #{$bestbag}"
+        else
+            dump($shaft)
+        end
+        sleep 0.5
+    end
+end
+
+def wearHammer()
+    waitrt?
+    while checkright =~ /forging-hammer/
+        put "wear my forging-hammer"
+        wait
+    end
+end
+
+def removeHammer()
+    fput "pour my oil in trough" if checkright =~ /oil/
+    fput "stow my oil" if checkright =~ /oil/
+    waitrt?
+    fput "stow r" if not checkright == nil and not checkright =~ /forging-hammer/
+    until checkright =~ /forging-hammer/
+        put "remove my forging-hammer"
+        pause
+    end
+end
+
+def tongs(glyph)
+    best = false
+    goForge() if not checkroom =~ / Forge/ and not glyph =~ /forging-hammer/
+    removeHammer()
+    pause 0.2
+    result = ""
+    put "get tongs"
+    until result =~ /\.\.\.wait|The material you are holding needs to be shaped|The tempering trough is empty|close inspection is all you need to tell that you have done your best|You finish this round of work|has not been scribed|Most likely the rent|the safest thing to do now is to|more work to be done|The steady ring of hammer on [a-z]+ ends abruptly with a wrenchingly sour note|You finish your work and straighten up|you nod, satisfied with your work/
+        result << get
+    end
+    waitrt?
+    case result
+        when /The material you are holding needs to be shaped/ 
+            scribe(glyph)
+            tongs(glyph)
+        when /The tempering trough is empty/
+            #error somewhere, should this return somthing?
+            return
+        when /^Get what/
+            if not checkroom =~ /Forge/
+                goForge() unless glyph =~ /forging-hammer/ 
+            else
+                echo "lost..."
+                goWorkshop()
+                put "out"
+                wait
+                wait
+                pause
+                goWorkshop()
+                goForge() unless glyph =~ /forging-hammer/ 
+            end
+        when /\.\.\.wait/
+            sleep 0.1
+            tongs(glyph)
+        when /has not been scribed|the safest thing to do now is to/
+            wearHammer()
+            scribe(glyph)
+            tongs(glyph)
+        when /Most likely the rent/
+            goWorkshop()
+            fput "out"
+            pause 2
+            goWorkshop()
+            goForge() unless glyph =~ /forging-hammer/ 
+        when /You finish this round of work|more work to be done/
+            tongs(glyph)
+        when /The steady ring of hammer on bronze ends abruptly with a wrenchingly sour note/
+            wearHammer()
+            getSupplies(glyph) if not getBar()
+            scribe(glyph)
+            tongs(glyph)
+        when /You finish your work and straighten up|you nod, satisfied with your work/
+            wearHammer()
+           #if $keepProduct 
+            #    fput "stow l"
+            #else
+                fput "drop my #{checkleft}"  
+            #end
+            forgeBest(glyph)
+        when /close inspection is all you need to tell that you have done your best/
+            wearHammer()
+            print "\a"
+            if $keepProduct
+                fput "stow l"
+            elsif checkleft =~ /#{$head}/
+                fput "drop #{$head}"
+            elsif checkleft =~ /#{$shaft}/
+                fput "drop #{$shaft}"
+            else
+                echo "Error: Unexpected product, storing"
+                fput "stow l"
+            end
+            best = true
+        else
+            echo "ERROR: BAD STATE"
+            echo "not sure how we got here"
+            echo ""
+            echo ""
+    end
+end
+
+def trough(glyph)
+    trough = dothis "look in trough", /In the trough you see .*/
+    unless trough =~ /#{$oilCheck}/
+        unless trough =~ /^In the trough you see a cork plug\.S/
+            fput "pull plug"
+            waitrt?
+            fput "drop my oil"
+        end
+        if $oil =~ /water/
+            fput "get bucket"
+        else
+            buyOil(glyph) if not getOil()
+            oilnoun = ""
+            $oil =~ /oil/ ? oilnoun = "oil" : oilnoun = "water"
+            fput "pour my #{oilnoun} in trough"
+        end
+    end
+end
+
+def forgeBest(glyph)
+    best = false
+    while not best
+
+        goWorkshop() unless (checkroom =~ /Workshop(?!s)/ or checkroom =~ / Forge/)
+        goForge() unless (checkroom =~ / Forge/ or glyph =~ /forging-hammer/)
+        wearHammer()
+        trough(glyph) if not glyph =~ /forging-hammer/
+        getSupplies(glyph) if not getBar()
+        scribe(glyph)
+        grind(glyph) if glyph =~ /forging-hammer/
+        tongs(glyph) if not glyph =~ /forging-hammer/
+
+    end
+end
+
+def makePerfect()
+    goWorkshop() unless checkroom =~ /Workshop/
+    loop do
+        multifput "get my #{$shaft} from my #{$bestbag}", "get my #{$head} from my #{$bestbag}"
+        if appraiseBest($head) and appraiseBest($shaft)
+            result = vise()
+            case result
+                when /perfect/
+                    echo "YOU DID IT!"
+                    print "\a"
+                    return true
+                when /done/
+                    fput "stow all"
+                    return false
+                when /ruin/
+                    noop = 0
+                when /redo/
+                    vise()
+            end
+        end
+    end
+end
+
+
+
+
+#MAIN
+
+fput "flag sortedview off"
+fput "wear my forging-hammer" if checkleft =~ /forging-hammer/ or checkright =~ /forging-hammer/
+while checkleft =~ /#{$type}/ or checkright =~ /#{$type}/
+    fput "put my #{$type} in my #{$container}"
+end
+fput "stow left" if checkleft != nil
+fput "stow right" if checkright != nil
+
+goWorkshop() if checkroom =~ / Forge/
+GameObj.loot.each { |loot| if loot.name =~ /barrel/ then $dump = "barrel" elsif loot.name =~ /bin/ then $dump = "bin" end }
+fput "out" if checkroom =~ / Workshop\]/
+until checkroom =~ /(s|S)upply|Central Platform/
+    Script.run "go2", "forge"
+end
+
+loadSupplies()
+
+iterations.times { 
+    #if $product =~ /forging-hammer/ and makeHead
+    #    makeHandle($headglyph)
+    #elsif makeHead
+    if makeHead
+        forgeBest($headglyph)
+    end
+}
+
+iterations.times { 
+    if makeHandle
+        makeHandle($shaftglyph) 
+    end
+}
+
+perfects = 0
+if makePerfect
+    loop do
+        if makePerfect()
+            perfects = perfects + 1
+            exit if perfects >= $makenum
+        end
+    end
+end
