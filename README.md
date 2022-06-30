@@ -1,2 +1,2 @@
 # GForge
-Forging bot for a text based game
+AI for text based game
